@@ -28,6 +28,7 @@ LISTING_DF_COLUMNS: tuple[str, ...] = (
     "fin_instrm_tp",
     "sgmt",
     "del_flg",
+    "listing_status",
     "listg_dt",
     "rmvl_dt",
     "as_of_date",
@@ -61,6 +62,7 @@ class ExchangeListingRecord:
     fin_instrm_tp: str | None = None
     sgmt: str | None = None
     del_flg: str | None = None
+    listing_status: str | None = None
     listg_dt: str | None = None
     rmvl_dt: str | None = None
     as_of_date: date | None = None
@@ -141,7 +143,7 @@ class RejectedRecord:
 
 
 @dataclass(frozen=True)
-class NSEMasterParseResult:
+class SecurityMasterParseResult:
     """Typed output container for NSE master parsing.
 
     duplicate_isin_count counts distinct ISINs with multiple source rows,
@@ -189,3 +191,7 @@ class NSEMasterParseResult:
             na_position="last",
             kind="mergesort",
         ).reset_index(drop=True)
+
+
+# Backward-compatible name for the original NSE parser and callers.
+NSEMasterParseResult = SecurityMasterParseResult

@@ -17,6 +17,7 @@ from india_ml4t.data.schemas import (
     DuplicateIsinDiagnostic,
     ExchangeListingRecord,
     NSEMasterParseResult,
+    SecurityMasterParseResult,
     SecurityRecord,
     SymbolHistoryRecord,
 )
@@ -37,6 +38,25 @@ def make_parse_result(**overrides):
     }
     values.update(overrides)
     return NSEMasterParseResult(**values)
+
+
+def test_nse_master_parse_result_is_backward_compatible_alias():
+    assert NSEMasterParseResult is SecurityMasterParseResult
+
+
+def test_listing_status_is_separate_from_deletion_flag():
+    record = ExchangeListingRecord(
+        isin="INE002A01018",
+        exchange="BSE",
+        fin_instrm_id="100325",
+        tckr_symb="RELIANCE",
+        scty_srs="A",
+        del_flg=None,
+        listing_status="A",
+    )
+    assert record.del_flg is None
+    assert record.listing_status == "A"
+    assert "listing_status" in LISTING_DF_COLUMNS
 
 
 def test_security_record_is_separate_from_exchange_listing():
