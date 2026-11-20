@@ -106,7 +106,7 @@ def test_dummy_isin_is_excluded_from_research_but_not_inferred_as_tradeable():
     )
 
     assert result.research_eligibility == "EXCLUDED"
-    assert result.trading_eligibility == "ELIGIBLE"
+    assert result.trading_eligibility == "EXCLUDED"
 
 
 def test_non_ine_isin_is_not_assumed_to_be_research_eligible():
