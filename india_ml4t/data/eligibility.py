@@ -29,7 +29,6 @@ class Stage1FPolicy:
 
     version: str = STAGE1F_POLICY_VERSION
     nse_permitted_to_trade_mapping_verified: bool = False
-    bse_listing_status_mapping_verified: bool = False
 
 
 @dataclass(frozen=True)
@@ -65,18 +64,11 @@ def _research_assessment(
             "Listing has no ticker symbol.",
         )
 
-    if isin_category == "INE_EQUITY":
-        return (
-            "ELIGIBLE",
-            "RESEARCH_IDENTITY_VALID",
-            "Structurally valid INE-prefixed listing with a ticker; this is not "
-            "a trading-permission decision.",
-        )
-
     return (
         "UNKNOWN",
-        "RESEARCH_IDENTITY_UNCLASSIFIED",
-        f"ISIN structural category {isin_category} is not classified by this policy.",
+        "RESEARCH_INSTRUMENT_CLASS_UNVERIFIED",
+        "Identity is structurally usable, but instrument/series classification "
+        "has not been verified for research-universe inclusion.",
     )
 
 
@@ -120,36 +112,11 @@ def _trading_assessment(
         )
 
     if listing.exchange == "BSE":
-        if not policy.bse_listing_status_mapping_verified:
-            return (
-                "UNKNOWN",
-                "BSE_PERMISSION_MAPPING_UNVERIFIED",
-                "BSE listing-status mapping has not been enabled as verified.",
-            )
-
-        value = (listing.listing_status or "").strip().upper()
-        if value == "A":
-            return (
-                "ELIGIBLE",
-                "BSE_LISTING_ACTIVE",
-                "Verified BSE listing status indicates active listing.",
-            )
-        if value == "S":
-            return (
-                "RESTRICTED",
-                "BSE_LISTING_SUSPENDED",
-                "Verified BSE listing status indicates suspension.",
-            )
-        if value == "I":
-            return (
-                "EXCLUDED",
-                "BSE_LISTING_INACTIVE",
-                "Verified BSE listing status indicates inactive listing.",
-            )
         return (
             "UNKNOWN",
-            "BSE_LISTING_STATUS_UNKNOWN",
-            f"Missing or unrecognised BSE listing status: {value or '<blank>'}.",
+            "BSE_PERMISSION_MAPPING_UNVERIFIED",
+            "No verified BSE trading-permission field mapping is enabled. "
+            "An active listing status is not treated as proof of trading permission.",
         )
 
     return (
@@ -165,8 +132,10 @@ def assess_listing_eligibility(
 ) -> ListingEligibilityAssessment:
     """Return conservative research and trading assessments for one listing.
 
-    Research inclusion is based only on structural identity checks.
-    Trading eligibility requires an explicitly enabled exchange mapping.
+    Invalid/synthetic identities are excluded from both universes. Other
+    research classifications remain UNKNOWN until instrument/series rules
+    are verified. Trading eligibility requires an explicitly enabled,
+    exchange-specific permission mapping.
     """
     active_policy = policy or Stage1FPolicy()
     research_status, research_reason, research_detail = _research_assessment(listing)
