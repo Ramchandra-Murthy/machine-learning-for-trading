@@ -117,7 +117,7 @@ class DataNotFoundError(FileNotFoundError):
         except (OSError, ValueError):
             return []
         return [
-            f"Data root: {root}",
+            f"Data root: {root.as_posix()}",
             f"  {source}",
             f"  If you already have this data elsewhere, point {_DATA_ROOT_VARIABLE} at",
             "  that directory - export it, or set it in .env - rather than downloading",
@@ -132,7 +132,7 @@ class DataNotFoundError(FileNotFoundError):
             f"DATA NOT FOUND: {self.dataset_name}",
             "=" * 70,
             "",
-            f"Expected location: {self.path}",
+            f"Expected location: {self.path.as_posix()}",
             "",
             *self._data_root_lines(),
         ]
@@ -145,7 +145,7 @@ class DataNotFoundError(FileNotFoundError):
                     "Download from:",
                     f"  {self.download_url}",
                     "",
-                    f"Extract to: {self.path.parent}",
+                    f"Extract to: {self.path.parent.as_posix()}",
                     "",
                 ]
             )

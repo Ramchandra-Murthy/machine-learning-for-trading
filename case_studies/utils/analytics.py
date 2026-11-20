@@ -830,7 +830,7 @@ def load_carrier_cost_curves(case_studies: list[str] | None = None) -> CarrierCo
     for cs_id in cs_list:
         db_path = registry_path(cs_id)
         if not db_path.exists():
-            drop(cs_id, "no registry", f"{db_path} does not exist")
+            drop(cs_id, "no registry", f"{db_path.as_posix()} does not exist")
             continue
 
         # Resolve the deployed carrier's training hash and its strategy spec.

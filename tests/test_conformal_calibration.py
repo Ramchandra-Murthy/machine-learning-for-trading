@@ -415,8 +415,9 @@ def test_a_missing_prediction_still_names_the_directory_it_was_expected_in(
     workspace.mkdir(parents=True)
     monkeypatch.setattr(conformal, "get_case_study_dir", lambda _: workspace)
 
-    with pytest.raises(FileNotFoundError, match=str(workspace)):
+    with pytest.raises(FileNotFoundError) as exc_info:
         conformal.compute_conformal_widths("demo", "candidate", write=False)
+    assert str(workspace) in str(exc_info.value)
 
 
 def test_widths_compute_on_a_panel_keyed_by_integer_identifiers(

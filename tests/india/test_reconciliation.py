@@ -352,3 +352,57 @@ def test_reconciliation_rejects_mismatched_dates_without_override() -> None:
         assert "parser dates differ" in str(exc)
     else:
         raise AssertionError("Expected a ValueError for mismatched source dates")
+
+
+@pytest.mark.parametrize(
+    ("source", "wrong_exchange"),
+    [
+        ("NSE", "BSE"),
+        ("BSE", "NSE"),
+    ],
+)
+def test_reconciliation_rejects_wrong_exchange_listing(
+    source: str,
+    wrong_exchange: str,
+) -> None:
+    listing = ExchangeListingRecord(
+        isin="INE002A01018",
+        exchange=wrong_exchange,
+        fin_instrm_id="TEST-ID",
+        tckr_symb="TEST",
+        scty_srs="EQ",
+        as_of_date=AS_OF,
+    )
+
+    def make_result(
+        name: str,
+        listings: tuple[ExchangeListingRecord, ...],
+    ) -> SecurityMasterParseResult:
+        return SecurityMasterParseResult(
+            as_of_date=AS_OF,
+            source_file=Path(f"{name}.csv"),
+            source_checksum=f"{name}-checksum",
+            parser_version=f"{name}-v1",
+            policy_version="policy-v1",
+            total_source_rows=len(listings),
+            valid_listing_rows=len(listings),
+            unique_isin_count=len(listings),
+            duplicate_isin_count=0,
+            rejected_row_count=0,
+            listings=listings,
+        )
+
+    nse_result = make_result(
+        "nse",
+        (listing,) if source == "NSE" else (),
+    )
+    bse_result = make_result(
+        "bse",
+        (listing,) if source == "BSE" else (),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=f"{source} parser result contains listing assigned to exchange",
+    ):
+        reconcile_security_masters(nse_result, bse_result)

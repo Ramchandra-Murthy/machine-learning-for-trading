@@ -188,7 +188,7 @@ class TestDataRootProvenance:
 
         msg = self._error_under(tmp_path)
 
-        assert f"Data root: {tmp_path}" in msg
+        assert f"Data root: {tmp_path.as_posix()}" in msg
         assert "Set by the ML4T_DATA_PATH environment variable." in msg
 
     def test_dotenv_is_distinguished_from_the_environment(

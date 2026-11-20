@@ -169,6 +169,19 @@ def reconcile_security_masters(
     This function does not apply trading eligibility, liquidity, price,
     volume, settlement or broker-tradability filters.
     """
+    # Validate that each parser result contains listings from its own exchange.
+    for expected_exchange, result in (
+        ("NSE", nse_result),
+        ("BSE", bse_result),
+    ):
+        for index, row in enumerate(result.listings, start=1):
+            if row.exchange != expected_exchange:
+                raise ValueError(
+                    f"{expected_exchange} parser result contains listing "
+                    f"assigned to exchange {row.exchange!r} "
+                    f"(ISIN {row.isin!r}, listing index {index})."
+                )
+
     resolved_date = as_of_date or nse_result.as_of_date
 
     if nse_result.as_of_date != bse_result.as_of_date and as_of_date is None:
