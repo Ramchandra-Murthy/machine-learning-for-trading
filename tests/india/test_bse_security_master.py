@@ -119,11 +119,11 @@ def test_bse_literal_na_isin_rejected_and_duplicates_retained(tmp_path: Path) ->
 def test_bse_status_exclusive_and_closing_auction_fields_are_preserved(tmp_path: Path) -> None:
     member_name = "SCRIP/BSE_EQ_SCRIP_19112026.csv"
     csv_bytes = (
-        "FinInstrmId,TckrSymb,SctySrs,FinInstrmNm,ISIN,Sts,XchgExclsv,"
-        "PrtdToTrad,SctyStsNrmlMkt,ElgbltyNrmlMkt,ElgbltyClsgAuctnSsn\n"
-        "500325,RELIANCE,A,Reliance Industries Limited,INE002A01018,A,Y,,,,1\n"
-        "500112,TEST,B,Test Limited,INE001A01036,S,N,,,,0\n"
-    ).encode("utf-8")
+        b"FinInstrmId,TckrSymb,SctySrs,FinInstrmNm,ISIN,Sts,XchgExclsv,"
+        b"PrtdToTrad,SctyStsNrmlMkt,ElgbltyNrmlMkt,ElgbltyClsgAuctnSsn\n"
+        b"500325,RELIANCE,A,Reliance Industries Limited,INE002A01018,A,Y,,,,1\n"
+        b"500112,TEST,B,Test Limited,INE001A01036,S,N,,,,0\n"
+    )
     zip_path = tmp_path / "BSE_SCRIP.zip"
     with zipfile.ZipFile(zip_path, mode="w") as archive:
         archive.writestr(member_name, csv_bytes)
