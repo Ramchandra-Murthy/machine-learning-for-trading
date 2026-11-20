@@ -1,4 +1,4 @@
-"""Deterministic CSV and Parquet exports for reconciliation results."""
+"""Deterministic CSV and Parquet exports for reconciliation and eligibility."""
 
 from __future__ import annotations
 
@@ -9,11 +9,19 @@ from typing import Literal
 
 import pandas as pd
 
+from india_ml4t.data.eligibility import Stage1FPolicy
+from india_ml4t.data.listing_eligibility import (
+    DERIVED_LISTING_DF_COLUMNS,
+    build_listing_eligibility_records,
+    listing_eligibility_dataframe,
+)
 from india_ml4t.data.schemas import (
     CROSS_EXCHANGE_DF_COLUMNS,
     DUPLICATE_GROUP_DF_COLUMNS,
     EXCEPTION_DF_COLUMNS,
     LISTING_COMPARISON_DF_COLUMNS,
+    LISTING_DF_COLUMNS,
+    ExchangeListingRecord,
     ReconciliationResult,
 )
 
@@ -50,13 +58,14 @@ _BOOLEAN_COLUMNS = {
     "has_duplicate",
 }
 
-_DATE_COLUMNS = {"as_of_date"}
+_DATE_COLUMNS = {"as_of_date", "assessment_date"}
 
 _DATASET_COLUMNS = {
     "cross_exchange_master": CROSS_EXCHANGE_DF_COLUMNS,
     "exchange_listing_comparison": LISTING_COMPARISON_DF_COLUMNS,
     "duplicate_groups": DUPLICATE_GROUP_DF_COLUMNS,
     "exceptions": EXCEPTION_DF_COLUMNS,
+    "listing_eligibility": DERIVED_LISTING_DF_COLUMNS,
 }
 
 
@@ -97,22 +106,45 @@ def _prepare_frame(frame: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
+def _eligibility_frame(
+    result: ReconciliationResult,
+    policy: Stage1FPolicy | None,
+) -> pd.DataFrame:
+    """Assess every reconciled listing without altering its raw exchange fields."""
+    listings = tuple(
+        ExchangeListingRecord(
+            **{column: getattr(row, column) for column in LISTING_DF_COLUMNS}
+        )
+        for row in result.exchange_listing_comparison
+    )
+    records = build_listing_eligibility_records(
+        listings,
+        policy=policy,
+        as_of_date=result.summary.as_of_date if result.summary is not None else None,
+    )
+    return listing_eligibility_dataframe(records).reindex(
+        columns=list(DERIVED_LISTING_DF_COLUMNS)
+    )
+
+
 def reconciliation_dataframes(
     result: ReconciliationResult,
+    eligibility_policy: Stage1FPolicy | None = None,
 ) -> dict[str, pd.DataFrame]:
-    """Return the five reconciliation outputs as stable DataFrames."""
+    """Return reconciliation outputs plus per-listing eligibility assessments."""
+    if result.summary is None:
+        raise ValueError("ReconciliationResult.summary is missing.")
+
     frames = {
         "cross_exchange_master": result.to_cross_exchange_dataframe(),
         "exchange_listing_comparison": result.to_listing_comparison_dataframe(),
         "duplicate_groups": result.to_duplicate_groups_dataframe(),
         "exceptions": result.to_exceptions_dataframe(),
+        "listing_eligibility": _eligibility_frame(result, eligibility_policy),
     }
 
     for name, columns in _DATASET_COLUMNS.items():
         frames[name] = frames[name].reindex(columns=list(columns))
-
-    if result.summary is None:
-        raise ValueError("ReconciliationResult.summary is missing.")
 
     frames["summary"] = pd.DataFrame([asdict(result.summary)])
 
@@ -123,8 +155,9 @@ def export_reconciliation(
     result: ReconciliationResult,
     output_dir: str | Path,
     formats: tuple[ExportFormat, ...] = ("csv", "parquet"),
+    eligibility_policy: Stage1FPolicy | None = None,
 ) -> dict[str, Path]:
-    """Export all five reconciliation datasets in the requested formats."""
+    """Export reconciliation and conservative listing-eligibility datasets."""
     if not formats:
         raise ValueError("At least one export format must be requested.")
 
@@ -138,7 +171,7 @@ def export_reconciliation(
     destination = Path(output_dir)
     destination.mkdir(parents=True, exist_ok=True)
 
-    frames = reconciliation_dataframes(result)
+    frames = reconciliation_dataframes(result, eligibility_policy=eligibility_policy)
     exported: dict[str, Path] = {}
 
     for dataset_name, frame in frames.items():
