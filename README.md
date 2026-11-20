@@ -319,6 +319,22 @@ file sets the variable inside the container. See
 **[running notebooks](docs/running-notebooks.md)** for the first-notebook walkthrough, case-study
 pipelines, Papermill parameters, and the experiment workflow.
 
+### 4. Launch the unified Streamlit portal
+
+The portal brings the book chapters, case-study pipelines, and India RP2 workspace into one
+local application. It executes repository-owned chapter notebooks and case-study Python stages;
+the original source files remain unchanged.
+
+From the repository root, run:
+
+```bash
+docker compose --profile portal build portal
+docker compose --profile portal up portal
+```
+
+Then open **http://localhost:8501**. See [the portal guide](apps/portal/README.md) for its
+features and execution safeguards. The first build uses the published ML4T runtime as its base.
+
 ### Docker images
 
 Most notebooks run on the default **ml4t** image; a few need a specialized one, and each such notebook says so in its
