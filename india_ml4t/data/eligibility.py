@@ -174,9 +174,12 @@ def assess_listing_eligibility(
         listing, active_policy
     )
 
-    # Trading permission is the controlling reason when it is unknown or
-    # restrictive; otherwise preserve the research diagnostic.
-    if trading_status != "ELIGIBLE":
+    # Structurally invalid or synthetic identities must never be marked
+    # tradeable, even when an exchange permission field says "permitted".
+    if research_status == "EXCLUDED":
+        trading_status = "EXCLUDED"
+        reason_code, detail = research_reason, research_detail
+    elif trading_status != "ELIGIBLE":
         reason_code, detail = trading_reason, trading_detail
     else:
         reason_code, detail = research_reason, research_detail
