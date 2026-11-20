@@ -279,3 +279,64 @@ def test_export_rejects_missing_summary(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="summary is missing"):
         export_reconciliation(result, tmp_path)
+
+
+def test_reconciliation_validation_report_accepts_consistent_bundle(
+    sample_result: ReconciliationResult,
+) -> None:
+    from india_ml4t.data.validation import validate_reconciliation_dataframes
+
+    report = validate_reconciliation_dataframes(reconciliation_dataframes(sample_result))
+
+    assert report.is_valid
+    assert report.issues == ()
+    assert report.dataset_rows["listing_eligibility"] == 2
+    assert report.trading_eligibility_counts == {
+        "ELIGIBLE": 0,
+        "RESTRICTED": 0,
+        "EXCLUDED": 0,
+        "UNKNOWN": 2,
+    }
+    assert report.unknown_reason_counts == {
+        "BSE_PERMISSION_MAPPING_UNVERIFIED": 1,
+        "NSE_PERMISSION_MAPPING_UNVERIFIED": 1,
+    }
+
+
+def test_reconciliation_validation_detects_raw_field_drift(
+    sample_result: ReconciliationResult,
+) -> None:
+    from india_ml4t.data.validation import validate_reconciliation_dataframes
+
+    frames = reconciliation_dataframes(sample_result)
+    frames["listing_eligibility"] = frames["listing_eligibility"].copy()
+    frames["listing_eligibility"].loc[0, "source_file"] = "altered.csv"
+
+    report = validate_reconciliation_dataframes(frames)
+
+    assert not report.is_valid
+    assert any("Raw listing fields differ" in issue for issue in report.issues)
+
+
+def test_reconciliation_validation_detects_summary_count_mismatch(
+    sample_result: ReconciliationResult,
+) -> None:
+    from india_ml4t.data.validation import validate_reconciliation_dataframes
+
+    frames = reconciliation_dataframes(sample_result)
+    frames["summary"] = frames["summary"].copy()
+    frames["summary"].loc[0, "total_unique_isins"] = "99"
+
+    report = validate_reconciliation_dataframes(frames)
+
+    assert not report.is_valid
+    assert any("total_unique_isins=99" in issue for issue in report.issues)
+
+
+def test_reconciliation_validation_reports_missing_datasets() -> None:
+    from india_ml4t.data.validation import validate_reconciliation_dataframes
+
+    report = validate_reconciliation_dataframes({})
+
+    assert not report.is_valid
+    assert any("Missing required datasets" in issue for issue in report.issues)
