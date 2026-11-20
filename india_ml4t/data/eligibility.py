@@ -7,6 +7,7 @@ CAS eligibility is not normal-market trading permission.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Literal
 
@@ -140,9 +141,7 @@ def assess_listing_eligibility(
     """
     active_policy = policy or Stage1FPolicy()
     research_status, research_reason, research_detail = _research_assessment(listing)
-    trading_status, trading_reason, trading_detail = _trading_assessment(
-        listing, active_policy
-    )
+    trading_status, trading_reason, trading_detail = _trading_assessment(listing, active_policy)
 
     # Structurally invalid or synthetic identities must never be marked
     # tradeable, even when an exchange permission field says "permitted".
@@ -163,3 +162,17 @@ def assess_listing_eligibility(
         detail=detail,
         policy_version=active_policy.version,
     )
+
+
+def assess_listings_eligibility(
+    listings: Iterable[ExchangeListingRecord],
+    policy: Stage1FPolicy | None = None,
+) -> tuple[ListingEligibilityAssessment, ...]:
+    """Assess multiple listings without modifying the input records.
+
+    Results preserve input order and contain exactly one assessment
+    for every listing. An empty iterable returns an empty tuple.
+    """
+    active_policy = policy or Stage1FPolicy()
+
+    return tuple(assess_listing_eligibility(listing, active_policy) for listing in listings)

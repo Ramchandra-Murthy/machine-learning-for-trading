@@ -4,6 +4,7 @@ from india_ml4t.data.eligibility import (
     STAGE1F_POLICY_VERSION,
     Stage1FPolicy,
     assess_listing_eligibility,
+    assess_listings_eligibility,
 )
 from india_ml4t.data.schemas import ExchangeListingRecord
 
@@ -103,3 +104,34 @@ def test_policy_object_is_immutable_and_versioned():
 
     assert policy.version == STAGE1F_POLICY_VERSION
     assert policy.nse_permitted_to_trade_mapping_verified is False
+
+
+def test_batch_assessment_preserves_order_and_cardinality():
+    listings = (
+        make_listing(isin="INE002A01018", exchange="NSE"),
+        make_listing(isin="INE003A01024", exchange="BSE"),
+        make_listing(isin="INE004A01022", exchange="NSE"),
+    )
+
+    results = assess_listings_eligibility(listings)
+
+    assert len(results) == len(listings)
+    assert [result.isin for result in results] == [listing.isin for listing in listings]
+    assert [result.exchange for result in results] == [listing.exchange for listing in listings]
+
+
+def test_batch_assessment_handles_empty_input():
+    assert assess_listings_eligibility([]) == ()
+
+
+def test_batch_assessment_accepts_generator_and_policy():
+    listings = (make_listing(prtd_to_trad=value) for value in ("1", "0", None))
+    policy = Stage1FPolicy(nse_permitted_to_trade_mapping_verified=True)
+
+    results = assess_listings_eligibility(listings, policy)
+
+    assert [result.trading_eligibility for result in results] == [
+        "ELIGIBLE",
+        "RESTRICTED",
+        "UNKNOWN",
+    ]
