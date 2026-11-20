@@ -31,6 +31,22 @@ LISTING_DF_COLUMNS: tuple[str, ...] = (
     "sgmt",
     "del_flg",
     "listing_status",
+    "prtd_to_trad",
+    "normal_market_status",
+    "normal_market_eligibility",
+    "odd_lot_market_status",
+    "odd_lot_market_eligibility",
+    "retail_debt_market_status",
+    "closing_auction_eligibility",
+    "auction_market_status",
+    "auction_market_eligibility",
+    "additional_market_1_status",
+    "additional_market_1_eligibility",
+    "additional_market_2_status",
+    "additional_market_2_eligibility",
+    "exchange_exclusive",
+    "trading_permitted",
+    "slbm_eligibility",
     "listg_dt",
     "rmvl_dt",
     "as_of_date",
@@ -70,6 +86,22 @@ LISTING_COMPARISON_DF_COLUMNS: tuple[str, ...] = (
     "rmvl_dt",
     "as_of_date",
     "source_file",
+    "prtd_to_trad",
+    "normal_market_status",
+    "normal_market_eligibility",
+    "odd_lot_market_status",
+    "odd_lot_market_eligibility",
+    "retail_debt_market_status",
+    "closing_auction_eligibility",
+    "auction_market_status",
+    "auction_market_eligibility",
+    "additional_market_1_status",
+    "additional_market_1_eligibility",
+    "additional_market_2_status",
+    "additional_market_2_eligibility",
+    "exchange_exclusive",
+    "trading_permitted",
+    "slbm_eligibility",
 )
 
 DUPLICATE_GROUP_DF_COLUMNS: tuple[str, ...] = (
@@ -127,6 +159,22 @@ class ExchangeListingRecord:
     sgmt: str | None = None
     del_flg: str | None = None
     listing_status: str | None = None
+    prtd_to_trad: str | None = None
+    normal_market_status: str | None = None
+    normal_market_eligibility: str | None = None
+    odd_lot_market_status: str | None = None
+    odd_lot_market_eligibility: str | None = None
+    retail_debt_market_status: str | None = None
+    closing_auction_eligibility: str | None = None
+    auction_market_status: str | None = None
+    auction_market_eligibility: str | None = None
+    additional_market_1_status: str | None = None
+    additional_market_1_eligibility: str | None = None
+    additional_market_2_status: str | None = None
+    additional_market_2_eligibility: str | None = None
+    exchange_exclusive: str | None = None
+    trading_permitted: str | None = None
+    slbm_eligibility: str | None = None
     listg_dt: str | None = None
     rmvl_dt: str | None = None
     as_of_date: date | None = None
@@ -298,6 +346,22 @@ class ExchangeListingComparisonRecord:
     rmvl_dt: str | None
     as_of_date: date | None
     source_file: str | None
+    prtd_to_trad: str | None = None
+    normal_market_status: str | None = None
+    normal_market_eligibility: str | None = None
+    odd_lot_market_status: str | None = None
+    odd_lot_market_eligibility: str | None = None
+    retail_debt_market_status: str | None = None
+    closing_auction_eligibility: str | None = None
+    auction_market_status: str | None = None
+    auction_market_eligibility: str | None = None
+    additional_market_1_status: str | None = None
+    additional_market_1_eligibility: str | None = None
+    additional_market_2_status: str | None = None
+    additional_market_2_eligibility: str | None = None
+    exchange_exclusive: str | None = None
+    trading_permitted: str | None = None
+    slbm_eligibility: str | None = None
 
 
 @dataclass(frozen=True)

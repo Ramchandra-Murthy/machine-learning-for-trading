@@ -114,3 +114,28 @@ def test_bse_literal_na_isin_rejected_and_duplicates_retained(tmp_path: Path) ->
         (2, ReasonCodes.MALFORMED_ISIN.code, "NA"),
     ]
     assert [d.isin for d in first.duplicate_isin_diagnostics] == ["IN0019830010"]
+
+
+def test_bse_status_exclusive_and_closing_auction_fields_are_preserved(tmp_path: Path) -> None:
+    member_name = "SCRIP/BSE_EQ_SCRIP_19112026.csv"
+    csv_bytes = (
+        "FinInstrmId,TckrSymb,SctySrs,FinInstrmNm,ISIN,Sts,XchgExclsv,"
+        "PrtdToTrad,SctyStsNrmlMkt,ElgbltyNrmlMkt,ElgbltyClsgAuctnSsn\n"
+        "500325,RELIANCE,A,Reliance Industries Limited,INE002A01018,A,Y,,,,1\n"
+        "500112,TEST,B,Test Limited,INE001A01036,S,N,,,,0\n"
+    ).encode("utf-8")
+    zip_path = tmp_path / "BSE_SCRIP.zip"
+    with zipfile.ZipFile(zip_path, mode="w") as archive:
+        archive.writestr(member_name, csv_bytes)
+
+    result = parse_bse_security_master(zip_path, AS_OF)
+    rows = {row.tckr_symb: row for row in result.listings}
+
+    assert rows["RELIANCE"].listing_status == "A"
+    assert rows["RELIANCE"].exchange_exclusive == "Y"
+    assert rows["RELIANCE"].closing_auction_eligibility == "1"
+    assert rows["RELIANCE"].prtd_to_trad is None
+    assert rows["RELIANCE"].normal_market_status is None
+    assert rows["TEST"].listing_status == "S"
+    assert rows["TEST"].exchange_exclusive == "N"
+    assert rows["TEST"].closing_auction_eligibility == "0"

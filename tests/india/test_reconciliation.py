@@ -406,3 +406,47 @@ def test_reconciliation_rejects_wrong_exchange_listing(
         match=f"{source} parser result contains listing assigned to exchange",
     ):
         reconcile_security_masters(nse_result, bse_result)
+
+
+def test_reconciliation_preserves_raw_market_fields_through_dataframe_and_export() -> None:
+    from india_ml4t.data.reconciliation_export import reconciliation_dataframes
+
+    nse_listing = ExchangeListingRecord(
+        isin="INE002A01018", exchange="NSE", fin_instrm_id="2885",
+        tckr_symb="RELIANCE", scty_srs="EQ", prtd_to_trad="0",
+        normal_market_status="6", normal_market_eligibility="1",
+        additional_market_1_eligibility="UNKNOWN",
+    )
+    bse_listing = ExchangeListingRecord(
+        isin="INE002A01018", exchange="BSE", fin_instrm_id="500325",
+        tckr_symb="RELIANCE", scty_srs="A", listing_status="A",
+        exchange_exclusive="Y", closing_auction_eligibility="1",
+    )
+    nse_result = SecurityMasterParseResult(
+        as_of_date=AS_OF, source_file=Path("nse.csv"), source_checksum="nse",
+        parser_version="nse-v", policy_version="policy-v", total_source_rows=1,
+        valid_listing_rows=1, unique_isin_count=1, duplicate_isin_count=0,
+        rejected_row_count=0, listings=(nse_listing,),
+    )
+    bse_result = SecurityMasterParseResult(
+        as_of_date=AS_OF, source_file=Path("bse.zip"), source_checksum="bse",
+        parser_version="bse-v", policy_version="policy-v", total_source_rows=1,
+        valid_listing_rows=1, unique_isin_count=1, duplicate_isin_count=0,
+        rejected_row_count=0, listings=(bse_listing,),
+    )
+
+    result = reconcile_security_masters(nse_result, bse_result)
+    rows = {row.exchange: row for row in result.exchange_listing_comparison}
+    assert rows["NSE"].prtd_to_trad == "0"
+    assert rows["NSE"].normal_market_status == "6"
+    assert rows["NSE"].additional_market_1_eligibility == "UNKNOWN"
+    assert rows["BSE"].exchange_exclusive == "Y"
+    assert rows["BSE"].closing_auction_eligibility == "1"
+
+    frame = result.to_listing_comparison_dataframe().set_index("exchange")
+    assert frame.loc["NSE", "normal_market_status"] == "6"
+    assert frame.loc["BSE", "exchange_exclusive"] == "Y"
+
+    exported = reconciliation_dataframes(result)["exchange_listing_comparison"]
+    assert exported.loc[exported["exchange"] == "NSE", "prtd_to_trad"].iloc[0] == "0"
+    assert exported.loc[exported["exchange"] == "BSE", "closing_auction_eligibility"].iloc[0] == "1"

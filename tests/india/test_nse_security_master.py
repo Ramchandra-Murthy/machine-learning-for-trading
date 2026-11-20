@@ -173,3 +173,32 @@ def test_duplicate_isins_preserve_all_categories_and_listings(
         assert history.observed_on == AS_OF
         assert history.effective_from is None
         assert history.effective_to is None
+
+
+def test_nse_market_fields_are_preserved_verbatim_in_listing_dataframe(tmp_path: Path) -> None:
+    content = (
+        "ISIN,TckrSymb,FinInstrmId,SctySrs,PrtdToTrad,SctyStsNrmlMkt,ElgbltyNrmlMkt,"
+        "SctyStsOddLotMkt,ElgbltyOddLotMkt,SctyStsRETDBTMkt,ElgbltyClsgAuctnSsn,"
+        "SctyStsAuctnMkt,ElgbltyAuctnMkt,SctyStsAddtlMkt1,ElgbltyAddtlMkt1,"
+        "SctyStsAddtlMkt2,ElgbltyAddtlMkt2,XchgExclsv,TradgPrtd,SLBMElgblty\n"
+        "INE002A01018,RELIANCE,2885,EQ,0,6,1,2,0,2,0,2,1,1,0,1,0,,,\n"
+        "INE009A01021,INFY,1594,EQ,UNKNOWN,99,?,,,,,,,,,,,,,\n"
+    )
+    path = tmp_path / "market_fields.csv"
+    path.write_text(content, encoding="utf-8")
+
+    result = parse_nse_security_master(path, AS_OF)
+    rows = {row.tckr_symb: row for row in result.listings}
+
+    assert rows["RELIANCE"].prtd_to_trad == "0"
+    assert rows["RELIANCE"].normal_market_status == "6"
+    assert rows["RELIANCE"].normal_market_eligibility == "1"
+    assert rows["RELIANCE"].auction_market_eligibility == "1"
+    assert rows["RELIANCE"].slbm_eligibility is None
+    assert rows["INFY"].prtd_to_trad == "UNKNOWN"
+    assert rows["INFY"].normal_market_status == "99"
+    assert rows["INFY"].normal_market_eligibility == "?"
+
+    frame = result.to_listings_dataframe().set_index("tckr_symb")
+    assert frame.loc["RELIANCE", "normal_market_status"] == "6"
+    assert frame.loc["INFY", "normal_market_eligibility"] == "?"

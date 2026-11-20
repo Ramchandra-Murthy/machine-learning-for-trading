@@ -205,6 +205,24 @@ def parse_nse_security_master(
         listg_dt = _pick_field(row, _LISTG_DT_ALIASES)
         rmvl_dt = _pick_field(row, _RMVL_DT_ALIASES)
 
+        # Retain raw exchange fields; policy interpretation is deliberately separate.
+        prtd_to_trad = _pick_field(row, ("PrtdToTrad",))
+        normal_market_status = _pick_field(row, ("SctyStsNrmlMkt",))
+        normal_market_eligibility = _pick_field(row, ("ElgbltyNrmlMkt",))
+        odd_lot_market_status = _pick_field(row, ("SctyStsOddLotMkt",))
+        odd_lot_market_eligibility = _pick_field(row, ("ElgbltyOddLotMkt",))
+        retail_debt_market_status = _pick_field(row, ("SctyStsRETDBTMkt",))
+        closing_auction_eligibility = _pick_field(row, ("ElgbltyClsgAuctnSsn",))
+        auction_market_status = _pick_field(row, ("SctyStsAuctnMkt",))
+        auction_market_eligibility = _pick_field(row, ("ElgbltyAuctnMkt",))
+        additional_market_1_status = _pick_field(row, ("SctyStsAddtlMkt1",))
+        additional_market_1_eligibility = _pick_field(row, ("ElgbltyAddtlMkt1",))
+        additional_market_2_status = _pick_field(row, ("SctyStsAddtlMkt2",))
+        additional_market_2_eligibility = _pick_field(row, ("ElgbltyAddtlMkt2",))
+        exchange_exclusive = _pick_field(row, ("XchgExclsv",))
+        trading_permitted = _pick_field(row, ("TradgPrtd",))
+        slbm_eligibility = _pick_field(row, ("SLBMElgblty",))
+
         listing = ExchangeListingRecord(
             isin=normalized_isin,
             exchange="NSE",
@@ -215,6 +233,22 @@ def parse_nse_security_master(
             fin_instrm_tp=fin_instrm_tp,
             sgmt=sgmt,
             del_flg=del_flg,
+            prtd_to_trad=prtd_to_trad,
+            normal_market_status=normal_market_status,
+            normal_market_eligibility=normal_market_eligibility,
+            odd_lot_market_status=odd_lot_market_status,
+            odd_lot_market_eligibility=odd_lot_market_eligibility,
+            retail_debt_market_status=retail_debt_market_status,
+            closing_auction_eligibility=closing_auction_eligibility,
+            auction_market_status=auction_market_status,
+            auction_market_eligibility=auction_market_eligibility,
+            additional_market_1_status=additional_market_1_status,
+            additional_market_1_eligibility=additional_market_1_eligibility,
+            additional_market_2_status=additional_market_2_status,
+            additional_market_2_eligibility=additional_market_2_eligibility,
+            exchange_exclusive=exchange_exclusive,
+            trading_permitted=trading_permitted,
+            slbm_eligibility=slbm_eligibility,
             listg_dt=listg_dt,
             rmvl_dt=rmvl_dt,
             as_of_date=as_of_date,
