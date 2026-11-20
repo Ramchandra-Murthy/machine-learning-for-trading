@@ -27,7 +27,7 @@ def make_listing(**overrides):
 def test_default_policy_keeps_trading_permission_unknown():
     result = assess_listing_eligibility(make_listing())
 
-    assert result.research_eligibility == "ELIGIBLE"
+    assert result.research_eligibility == "UNKNOWN"
     assert result.trading_eligibility == "UNKNOWN"
     assert result.reason_code == "NSE_PERMISSION_MAPPING_UNVERIFIED"
     assert result.policy_version == STAGE1F_POLICY_VERSION
@@ -73,30 +73,12 @@ def test_unrecognised_nse_permission_value_falls_back_to_unknown():
     assert result.reason_code == "NSE_PERMISSION_VALUE_UNKNOWN"
 
 
-def test_bse_mapping_is_independent_and_disabled_by_default():
+def test_bse_listing_status_is_not_treated_as_trading_permission():
     listing = make_listing(exchange="BSE", listing_status="A")
     result = assess_listing_eligibility(listing)
 
     assert result.trading_eligibility == "UNKNOWN"
     assert result.reason_code == "BSE_PERMISSION_MAPPING_UNVERIFIED"
-
-
-def test_verified_bse_listing_status_mapping_is_exchange_specific():
-    policy = Stage1FPolicy(bse_listing_status_mapping_verified=True)
-
-    active = assess_listing_eligibility(
-        make_listing(exchange="BSE", listing_status="A"), policy
-    )
-    suspended = assess_listing_eligibility(
-        make_listing(exchange="BSE", listing_status="S"), policy
-    )
-    inactive = assess_listing_eligibility(
-        make_listing(exchange="BSE", listing_status="I"), policy
-    )
-
-    assert active.trading_eligibility == "ELIGIBLE"
-    assert suspended.trading_eligibility == "RESTRICTED"
-    assert inactive.trading_eligibility == "EXCLUDED"
 
 
 def test_dummy_isin_is_excluded_from_research_but_not_inferred_as_tradeable():
@@ -121,4 +103,3 @@ def test_policy_object_is_immutable_and_versioned():
 
     assert policy.version == STAGE1F_POLICY_VERSION
     assert policy.nse_permitted_to_trade_mapping_verified is False
-    assert policy.bse_listing_status_mapping_verified is False
