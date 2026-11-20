@@ -8,6 +8,7 @@ from datetime import date
 import pandas as pd
 import pytest
 
+from india_ml4t.data.eligibility import Stage1FPolicy
 from india_ml4t.data.reconciliation_export import (
     export_reconciliation,
     reconciliation_dataframes,
@@ -82,6 +83,7 @@ def sample_result() -> ReconciliationResult:
                 rmvl_dt=None,
                 as_of_date=AS_OF,
                 source_file="nse.csv",
+                prtd_to_trad="1",
             ),
             ExchangeListingComparisonRecord(
                 isin="INE002A01018",
@@ -143,6 +145,7 @@ def test_reconciliation_dataframes_have_expected_datasets_and_rows(
         "exchange_listing_comparison",
         "duplicate_groups",
         "exceptions",
+        "listing_eligibility",
         "summary",
     }
 
@@ -150,10 +153,63 @@ def test_reconciliation_dataframes_have_expected_datasets_and_rows(
     assert len(frames["exchange_listing_comparison"]) == 2
     assert len(frames["duplicate_groups"]) == 1
     assert len(frames["exceptions"]) == 1
+    assert len(frames["listing_eligibility"]) == 2
     assert len(frames["summary"]) == 1
+    assert frames["listing_eligibility"].loc[0, "trading_eligibility"] == "UNKNOWN"
+    assert frames["listing_eligibility"].loc[0, "prtd_to_trad"] == "1"
+    assert frames["listing_eligibility"].loc[0, "source_file"] == "nse.csv"
+    assert frames["listing_eligibility"].loc[1, "trading_eligibility"] == "UNKNOWN"
 
     assert frames["cross_exchange_master"].columns.tolist()[0] == "isin"
     assert frames["exchange_listing_comparison"].columns.tolist()[0] == "isin"
+
+
+def test_verified_nse_mapping_is_opt_in_and_bse_stays_unknown(
+    sample_result: ReconciliationResult,
+) -> None:
+    frames = reconciliation_dataframes(
+        sample_result,
+        eligibility_policy=Stage1FPolicy(
+            nse_permitted_to_trade_mapping_verified=True
+        ),
+    )
+
+    eligibility = frames["listing_eligibility"]
+    assert eligibility.loc[0, "trading_eligibility"] == "ELIGIBLE"
+    assert eligibility.loc[0, "prtd_to_trad"] == "1"
+    assert eligibility.loc[1, "trading_eligibility"] == "UNKNOWN"
+    assert eligibility.loc[1, "reason_code"] == "BSE_PERMISSION_MAPPING_UNVERIFIED"
+
+
+def test_listing_eligibility_export_is_empty_with_stable_schema() -> None:
+    result = ReconciliationResult(
+        exchange_listing_comparison=(),
+        summary=ReconciliationSummary(
+            as_of_date=AS_OF,
+            nse_source_file="nse.csv",
+            nse_source_checksum="nse-checksum",
+            bse_source_file="bse.zip!member.csv",
+            bse_source_checksum="bse-checksum",
+            nse_parser_version="nse-v1",
+            bse_parser_version="bse-v1",
+            reconciliation_version="reconcile-v1",
+            policy_version="policy-v1",
+            common_isin_count=0,
+            nse_only_isin_count=0,
+            bse_only_isin_count=0,
+            total_unique_isins=0,
+            nse_valid_listings=0,
+            bse_valid_listings=0,
+            duplicate_group_count=0,
+            exception_count=0,
+        ),
+    )
+
+    frame = reconciliation_dataframes(result)["listing_eligibility"]
+    assert frame.empty
+    assert "research_eligibility" in frame.columns
+    assert "trading_eligibility" in frame.columns
+    assert "prtd_to_trad" in frame.columns
 
 
 def test_tuple_fields_are_serialised_as_compact_json(
@@ -179,13 +235,14 @@ def test_csv_and_parquet_exports_round_trip(
         formats=("csv", "parquet"),
     )
 
-    assert len(exported) == 10
+    assert len(exported) == 12
 
     for dataset in (
         "cross_exchange_master",
         "exchange_listing_comparison",
         "duplicate_groups",
         "exceptions",
+        "listing_eligibility",
         "summary",
     ):
         csv_path = exported[f"{dataset}.csv"]
