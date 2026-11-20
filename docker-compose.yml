@@ -90,6 +90,24 @@ services:
     command: ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root"]
 
   # ============================================
+  # UNIFIED STREAMLIT PORTAL
+  # Uses the book-compatible ML4T runtime and exposes one local UI.
+  # Start with: docker compose --profile portal up --build portal
+  # Open: http://localhost:8501
+  # ============================================
+  portal:
+    <<: *common
+    image: ml4t/ml4t-portal:latest
+    build:
+      context: .
+      dockerfile: apps/portal/Dockerfile
+    container_name: ml4t-portal
+    ports:
+      - "127.0.0.1:8501:8501"
+    profiles: ["portal"]
+    command: ["/opt/ml4t/bin/streamlit", "run", "apps/portal/app.py", "--server.address=0.0.0.0", "--server.port=8501", "--server.headless=true", "--browser.gatherUsageStats=false"]
+
+  # ============================================
   # ML4T GPU (NVIDIA only — Linux/Windows x86)
   # Same as ml4t but with GPU passthrough
   # ============================================
