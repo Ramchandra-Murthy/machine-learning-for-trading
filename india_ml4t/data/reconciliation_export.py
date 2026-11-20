@@ -75,8 +75,9 @@ def _normalise_value(value: object, column: str) -> object:
         return None
 
     if column in _TUPLE_COLUMNS:
+        items = list(value) if isinstance(value, (tuple, list)) else []
         return json.dumps(
-            list(value) if value is not None else [],
+            items,
             ensure_ascii=False,
             separators=(",", ":"),
         )
@@ -97,11 +98,11 @@ def _prepare_frame(frame: pd.DataFrame) -> pd.DataFrame:
         )
 
         if column in _INTEGER_COLUMNS:
-            result[column] = pd.array(result[column], dtype="Int64")
+            result[column] = pd.array(result[column].tolist(), dtype="Int64")
         elif column in _BOOLEAN_COLUMNS:
-            result[column] = pd.array(result[column], dtype="boolean")
+            result[column] = pd.array(result[column].tolist(), dtype="boolean")
         else:
-            result[column] = pd.array(result[column], dtype="string")
+            result[column] = pd.array(result[column].tolist(), dtype="string")
 
     return result
 
@@ -111,11 +112,12 @@ def _eligibility_frame(
     policy: Stage1FPolicy | None,
 ) -> pd.DataFrame:
     """Assess every reconciled listing without altering its raw exchange fields."""
+    # Use the canonical comparison DataFrame ordering so that derived rows line
+    # up one-for-one with exchange_listing_comparison, including duplicate ISINs.
+    comparison = result.to_listing_comparison_dataframe()
     listings = tuple(
-        ExchangeListingRecord(
-            **{column: getattr(row, column) for column in LISTING_DF_COLUMNS}
-        )
-        for row in result.exchange_listing_comparison
+        ExchangeListingRecord(**{column: row[column] for column in LISTING_DF_COLUMNS})
+        for row in comparison.to_dict(orient="records")
     )
     records = build_listing_eligibility_records(
         listings,

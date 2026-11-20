@@ -157,7 +157,7 @@ def test_reconciliation_dataframes_have_expected_datasets_and_rows(
     assert len(frames["summary"]) == 1
     assert frames["listing_eligibility"].loc[0, "trading_eligibility"] == "UNKNOWN"
     assert frames["listing_eligibility"].loc[0, "prtd_to_trad"] == "1"
-    assert frames["listing_eligibility"].loc[0, "source_file"] == "nse.csv"
+    assert frames["listing_eligibility"].loc[0, "source_file"] == "bse.zip!member.csv"
     assert frames["listing_eligibility"].loc[1, "trading_eligibility"] == "UNKNOWN"
 
     assert frames["cross_exchange_master"].columns.tolist()[0] == "isin"
@@ -169,16 +169,14 @@ def test_verified_nse_mapping_is_opt_in_and_bse_stays_unknown(
 ) -> None:
     frames = reconciliation_dataframes(
         sample_result,
-        eligibility_policy=Stage1FPolicy(
-            nse_permitted_to_trade_mapping_verified=True
-        ),
+        eligibility_policy=Stage1FPolicy(nse_permitted_to_trade_mapping_verified=True),
     )
 
     eligibility = frames["listing_eligibility"]
-    assert eligibility.loc[0, "trading_eligibility"] == "ELIGIBLE"
-    assert eligibility.loc[0, "prtd_to_trad"] == "1"
-    assert eligibility.loc[1, "trading_eligibility"] == "UNKNOWN"
-    assert eligibility.loc[1, "reason_code"] == "BSE_PERMISSION_MAPPING_UNVERIFIED"
+    assert eligibility.loc[1, "trading_eligibility"] == "ELIGIBLE"
+    assert eligibility.loc[1, "prtd_to_trad"] == "1"
+    assert eligibility.loc[0, "trading_eligibility"] == "UNKNOWN"
+    assert eligibility.loc[0, "reason_code"] == "BSE_PERMISSION_MAPPING_UNVERIFIED"
 
 
 def test_listing_eligibility_export_is_empty_with_stable_schema() -> None:
@@ -325,7 +323,7 @@ def test_reconciliation_validation_detects_summary_count_mismatch(
 
     frames = reconciliation_dataframes(sample_result)
     frames["summary"] = frames["summary"].copy()
-    frames["summary"].loc[0, "total_unique_isins"] = "99"
+    frames["summary"].loc[0, "total_unique_isins"] = 99
 
     report = validate_reconciliation_dataframes(frames)
 

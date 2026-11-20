@@ -86,35 +86,45 @@ def validate_reconciliation_dataframes(
             eligibility_counts[status] = int(values.eq(status).sum())
         unexpected = sorted(set(values) - set(_ELIGIBILITY_STATUSES))
         if unexpected:
-            issues.append(
-                "Unexpected trading eligibility values: " + ", ".join(unexpected)
-            )
+            issues.append("Unexpected trading eligibility values: " + ", ".join(unexpected))
 
     if "reason_code" in eligibility.columns and "trading_eligibility" in eligibility.columns:
-        unknown = eligibility.loc[
-            eligibility["trading_eligibility"].eq("UNKNOWN"), "reason_code"
-        ].fillna("MISSING").astype(str)
+        unknown = (
+            eligibility.loc[eligibility["trading_eligibility"].eq("UNKNOWN"), "reason_code"]
+            .fillna("MISSING")
+            .astype(str)
+        )
         unknown_reason_counts = {
-            str(reason): int(count)
-            for reason, count in unknown.value_counts().sort_index().items()
+            str(reason): int(count) for reason, count in unknown.value_counts().sort_index().items()
         }
 
     if len(eligibility) != len(comparison):
-        issues.append(
-            "listing_eligibility row count does not match "
-            "exchange_listing_comparison."
-        )
+        issues.append("listing_eligibility row count does not match exchange_listing_comparison.")
 
-    raw_columns = [column for column in LISTING_DF_COLUMNS if column in comparison.columns]
     missing_raw = sorted(set(LISTING_DF_COLUMNS) - set(eligibility.columns))
+    missing_comparison_raw = sorted(set(LISTING_DF_COLUMNS) - set(comparison.columns))
     if missing_raw:
         issues.append(
-            "listing_eligibility is missing raw listing fields: "
-            + ", ".join(missing_raw)
+            "listing_eligibility is missing raw listing fields: " + ", ".join(missing_raw)
         )
-    elif len(eligibility) == len(comparison) and len(raw_columns) == len(LISTING_DF_COLUMNS):
+    if missing_comparison_raw:
+        issues.append(
+            "exchange_listing_comparison is missing raw listing fields: "
+            + ", ".join(missing_comparison_raw)
+        )
+
+    if (
+        not missing_raw
+        and not missing_comparison_raw
+        and len(eligibility) == len(comparison)
+    ):
+        # Raw listing fields are all scalar exchange values. Comparing as
+        # nullable strings makes the check independent of pandas extension
+        # dtype differences while still detecting missing/changed values.
         left = comparison.loc[:, list(LISTING_DF_COLUMNS)].reset_index(drop=True)
         right = eligibility.loc[:, list(LISTING_DF_COLUMNS)].reset_index(drop=True)
+        left = left.astype("string")
+        right = right.astype("string")
         if not left.equals(right):
             issues.append(
                 "Raw listing fields differ between listing_eligibility and "
@@ -134,9 +144,7 @@ def validate_reconciliation_dataframes(
             if expected is None:
                 issues.append(f"Summary count {column} is missing or invalid.")
             elif expected != actual:
-                issues.append(
-                    f"Summary {column}={expected} does not match {label} count {actual}."
-                )
+                issues.append(f"Summary {column}={expected} does not match {label} count {actual}.")
 
     return ReconciliationValidationReport(
         is_valid=not issues,
