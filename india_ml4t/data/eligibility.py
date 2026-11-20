@@ -22,9 +22,10 @@ ResearchStatus = Literal["ELIGIBLE", "EXCLUDED", "UNKNOWN"]
 class Stage1FPolicy:
     """Explicit evidence gates for exchange-specific trading mappings.
 
-    Both gates default to False. Enabling either gate asserts that the current
+    The NSE gate defaults to False. Enabling it asserts that the current
     exchange-file mapping and code meanings have been verified outside this
-    module. No inferred or series-only trading permission is applied.
+    module. BSE remains UNKNOWN until a trading-permission field is verified.
+    No inferred or series-only trading permission is applied.
     """
 
     version: str = STAGE1F_POLICY_VERSION
