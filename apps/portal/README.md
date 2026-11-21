@@ -4,7 +4,32 @@ The portal is a single local interface for the repository's 27 book chapters, ni
 studies, and the India RP2 workstream. It calls the repository's existing Python sources;
 it does not replace notebooks, algorithms, configurations, or datasets.
 
-## Start the portal with Docker
+## Deploy to Streamlit Community Cloud
+
+The hosted portal is configured from the repository directly; Docker is not required.
+
+In Streamlit Community Cloud, select:
+
+- Repository: `Ramchandra-Murthy/machine-learning-for-trading`
+- Branch: `feat/rp2-nse-data`
+- Main file path: `apps/portal/app.py`
+
+The app-specific `apps/portal/requirements.txt` installs the lightweight web runtime. The
+India RP2 workspace accepts an NSE `.csv`/`.csv.gz` and a BSE ZIP containing a
+`BSE_EQ_SCRIP_*.csv` member, applies one operator-selected as-of date, runs the repository's
+parsers and ISIN reconciliation, builds the conservative listing-eligibility output, validates
+the six output datasets, and offers them as a CSV ZIP download. Uploads are limited to 25 MB
+per source and the selected expanded BSE CSV member is limited to 80 MB.
+
+The Cloud dependency set is not the complete ML4T research environment. Chapter notebooks and
+case-study stages may need additional Python packages, datasets, credentials, GPU/database
+services, and published case-study artifacts. The app reports missing prerequisites rather than
+claiming that every research pipeline can run in the hosted environment. Trading-permission
+mappings that have not been independently verified remain `UNKNOWN`; the UI does not enable
+them by user override.
+
+## Start the portal locally with Docker
+
 
 From the repository root:
 
@@ -25,9 +50,9 @@ To stop it, press Ctrl+C in the terminal.
 - Case studies: browse the nine stage-based workflows. Create an isolated experiment copy
   and run its Python stages against that copy using ML4T_OUTPUT_DIR; the downloaded release
   artifacts and tracked configuration are not used as the write target.
-- India RP2: inspect the available NSE/BSE data modules and their current implementation
-  status. RP2 ingestion and reconciliation actions will be connected after their input and
-  output contracts are exposed as stable application services.
+- India RP2: upload NSE and BSE masters, run the canonical parsers and ISIN reconciliation,
+  inspect eligibility/duplicate/exception outputs, validate the export bundle, and download
+  six CSV datasets. Unverified trading-permission mappings remain UNKNOWN.
 
 ## Execution safeguards
 
