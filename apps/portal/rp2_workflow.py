@@ -9,7 +9,7 @@ from __future__ import annotations
 import io
 import tempfile
 import zipfile
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path, PurePosixPath
 
@@ -154,12 +154,27 @@ def run_rp2_reconciliation(
         nse_path.write_bytes(nse_bytes)
         bse_path.write_bytes(bse_zip_bytes)
 
-        nse_result = parse_nse_security_master(nse_path, as_of_date)
-        bse_result = parse_bse_security_master(
-            bse_path,
-            as_of_date,
-            member_name=selected_member,
+        nse_result = replace(
+            parse_nse_security_master(nse_path, as_of_date),
+            source_file=Path(nse_name),
         )
+        bse_result = replace(
+            parse_bse_security_master(
+                bse_path,
+                as_of_date,
+                member_name=selected_member,
+            ),
+            source_file=Path(bse_name),
+        )
+        if nse_result.valid_listing_rows == 0:
+            raise RP2WorkflowInputError(
+                "The NSE file produced zero valid listing rows. Check the file type and headers."
+            )
+        if bse_result.valid_listing_rows == 0:
+            raise RP2WorkflowInputError(
+                "The selected BSE CSV produced zero valid listing rows. "
+                "Check that it is the intended cash-market security master."
+            )
         reconciliation = reconcile_security_masters(
             nse_result,
             bse_result,
