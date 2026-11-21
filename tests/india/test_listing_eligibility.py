@@ -43,13 +43,25 @@ def test_builder_preserves_order_duplicates_and_raw_records():
     ]
 
 
-def test_builder_keeps_unverified_permission_unknown():
-    listing = make_listing(prtd_to_trad="1")
+def test_builder_uses_documented_nse_normal_market_field():
+    eligible = make_listing(normal_market_eligibility="1")
+
+    result = build_listing_eligibility_records([eligible])[0]
+
+    assert result.trading_eligibility == "ELIGIBLE"
+    assert result.reason_code == "NSE_NORMAL_MARKET_ELIGIBLE"
+
+
+def test_builder_keeps_missing_nse_normal_market_value_unknown():
+    listing = make_listing(
+        prtd_to_trad="1",
+        normal_market_eligibility=None,
+    )
 
     result = build_listing_eligibility_records([listing])[0]
 
     assert result.trading_eligibility == "UNKNOWN"
-    assert result.reason_code == "NSE_PERMISSION_MAPPING_UNVERIFIED"
+    assert result.reason_code == "NSE_NORMAL_MARKET_VALUE_UNKNOWN"
 
 
 def test_explicit_assessment_date_takes_precedence():
@@ -81,8 +93,11 @@ def test_missing_dates_remain_missing():
 
 
 def test_builder_accepts_generator_and_policy():
-    listings = (make_listing(prtd_to_trad=value) for value in ("1", "0", None))
-    policy = Stage1FPolicy(nse_permitted_to_trade_mapping_verified=True)
+    listings = (
+        make_listing(normal_market_eligibility=value)
+        for value in ("1", "0", None)
+    )
+    policy = Stage1FPolicy(nse_normal_market_eligibility_mapping_verified=True)
 
     results = build_listing_eligibility_records(listings, policy)
 
