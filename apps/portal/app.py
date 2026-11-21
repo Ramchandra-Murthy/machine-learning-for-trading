@@ -381,36 +381,234 @@ def _case_study_lab() -> None:
 
 
 def _india_rp2() -> None:
+    """Interactive NSE/BSE upload, reconciliation, eligibility and validation workspace."""
+    import io
+    import zipfile
+    from datetime import date
+
+    from apps.portal.rp2_workflow import (
+        RP2WorkflowInputError,
+        discover_bse_csv_members,
+        run_rp2_reconciliation,
+    )
+
     st.title("India Markets — RP2")
     st.write(
-        "The India RP2 workstream is integrated into this same application as a separate "
-        "market-research module. Its data and policy code remains independent of the book's "
-        "US-market case-study examples."
+        "Upload the NSE cash-market CSV/CSV.GZ and BSE SCRIP ZIP for the same "
+        "operator-selected as-of date. The portal runs the repository's original "
+        "parsers, ISIN reconciliation, conservative listing assessment and validation."
     )
-
-    modules = [
-        ("NSE security master", "india_ml4t/data/nse_security_master.py"),
-        ("BSE security master", "india_ml4t/data/bse_security_master.py"),
-        ("ISIN reconciliation", "india_ml4t/data/reconciliation.py"),
-        ("Eligibility policy", "india_ml4t/data/eligibility.py"),
-        ("Listing eligibility", "india_ml4t/data/listing_eligibility.py"),
-        ("Reconciliation exports", "india_ml4t/data/reconciliation_export.py"),
-        ("Validation reports", "india_ml4t/data/validation.py"),
-    ]
-    for name, relative_path in modules:
-        path = REPO_ROOT / relative_path
-        with st.expander(name):
-            if path.is_file():
-                st.caption(relative_path)
-                st.code(path.read_text(encoding="utf-8"), language="python")
-            else:
-                st.info(f"Module not present: {relative_path}")
-
     st.info(
-        "The RP2 parser, reconciliation, conservative eligibility, export and validation "
-        "modules are present in the repository. Their interactive ingestion and report-running "
-        "controls are the next integration step; this page currently provides code inspection."
+        "This workflow is an offline security-master research process. It does not "
+        "fetch exchange files, submit orders, or certify broker tradability. The date "
+        "below is an operator-supplied observation date; it is not inferred from a filename."
     )
+
+    st.subheader("1. Upload exchange security masters")
+    with st.form("rp2-reconciliation-form", clear_on_submit=False):
+        date_col, nse_col, bse_col = st.columns([1, 1, 1])
+        with date_col:
+            as_of_date = st.date_input(
+                "Security-master as-of date",
+                value=date.today(),
+                help="Use the observation date represented by both exchange files.",
+            )
+        with nse_col:
+            nse_upload = st.file_uploader(
+                "NSE cash-market master",
+                type=["csv", "gz"],
+                help="Upload the NSE .csv or .csv.gz security-master file (maximum 25 MB).",
+                key="rp2-nse-upload",
+            )
+        with bse_col:
+            bse_upload = st.file_uploader(
+                "BSE SCRIP master",
+                type=["zip"],
+                help="Upload the ZIP containing BSE_EQ_SCRIP_*.csv (maximum 25 MB).",
+                key="rp2-bse-upload",
+            )
+
+        selected_bse_member = None
+        if bse_upload is not None:
+            try:
+                member_options = discover_bse_csv_members(bse_upload.getvalue())
+                if len(member_options) == 1:
+                    selected_bse_member = member_options[0]
+                    st.caption(f"BSE CSV member detected: {selected_bse_member}")
+                else:
+                    selected_bse_member = st.selectbox(
+                        "Choose the BSE security-master CSV inside the ZIP",
+                        options=list(member_options),
+                    )
+            except RP2WorkflowInputError as exc:
+                st.error(str(exc))
+
+        submitted = st.form_submit_button(
+            "Parse, reconcile and validate NSE + BSE",
+            type="primary",
+            use_container_width=True,
+        )
+
+    if submitted:
+        if nse_upload is None or bse_upload is None:
+            st.error("Upload both the NSE master and BSE ZIP before running reconciliation.")
+        else:
+            try:
+                with st.spinner(
+                    "Parsing both exchange masters, reconciling ISINs and validating outputs..."
+                ):
+                    result = run_rp2_reconciliation(
+                        nse_filename=nse_upload.name,
+                        nse_bytes=nse_upload.getvalue(),
+                        bse_filename=bse_upload.name,
+                        bse_zip_bytes=bse_upload.getvalue(),
+                        as_of_date=as_of_date,
+                        bse_member=selected_bse_member,
+                    )
+                st.session_state["rp2_reconciliation_run"] = result
+                st.success("NSE/BSE parsing and reconciliation completed.")
+            except (RP2WorkflowInputError, ValueError, OSError, zipfile.BadZipFile) as exc:
+                st.error(f"RP2 input or reconciliation error: {exc}")
+            except Exception as exc:  # noqa: BLE001 - show parser/validation failures to the user
+                st.error(f"RP2 processing failed: {type(exc).__name__}: {exc}")
+
+    run_result = st.session_state.get("rp2_reconciliation_run")
+    if run_result is not None:
+        st.divider()
+        st.subheader(f"2. Reconciliation results — {run_result.as_of_date.isoformat()}")
+        summary = run_result.reconciliation.summary
+        if summary is None:
+            st.error("The reconciliation did not return its required summary.")
+        else:
+            metrics = st.columns(4)
+            metrics[0].metric("Common ISINs", f"{summary.common_isin_count:,}")
+            metrics[1].metric("NSE-only ISINs", f"{summary.nse_only_isin_count:,}")
+            metrics[2].metric("BSE-only ISINs", f"{summary.bse_only_isin_count:,}")
+            metrics[3].metric("Unique ISINs", f"{summary.total_unique_isins:,}")
+
+            counts = st.columns(4)
+            counts[0].metric("NSE valid listings", f"{summary.nse_valid_listings:,}")
+            counts[1].metric("BSE valid listings", f"{summary.bse_valid_listings:,}")
+            counts[2].metric("Duplicate groups", f"{summary.duplicate_group_count:,}")
+            counts[3].metric("Exceptions", f"{summary.exception_count:,}")
+
+        with st.expander("Input diagnostics and source provenance"):
+            provenance = {
+                "as_of_date": run_result.as_of_date.isoformat(),
+                "nse_file": run_result.nse_filename,
+                "nse_source_sha256": run_result.nse.source_checksum,
+                "nse_parser_version": run_result.nse.parser_version,
+                "nse_source_rows": run_result.nse.total_source_rows,
+                "nse_valid_listing_rows": run_result.nse.valid_listing_rows,
+                "nse_rejected_rows": run_result.nse.rejected_row_count,
+                "bse_file": run_result.bse_filename,
+                "bse_csv_member": run_result.bse_member,
+                "bse_csv_member_sha256": run_result.bse.source_checksum,
+                "bse_parser_version": run_result.bse.parser_version,
+                "bse_source_rows": run_result.bse.total_source_rows,
+                "bse_valid_listing_rows": run_result.bse.valid_listing_rows,
+                "bse_rejected_rows": run_result.bse.rejected_row_count,
+                "policy_version": summary.policy_version if summary else None,
+                "reconciliation_version": summary.reconciliation_version if summary else None,
+            }
+            st.json(provenance)
+
+        st.subheader("3. Validation")
+        if run_result.validation.is_valid:
+            st.success(
+                "All reconciliation bundle consistency checks passed. "
+                "This confirms internal dataset consistency, not exchange or broker approval."
+            )
+        else:
+            st.error("The output bundle did not pass every consistency check.")
+            for issue in run_result.validation.issues:
+                st.write(f"- {issue}")
+
+        st.subheader("4. Conservative trading-permission assessment")
+        st.warning(
+            "The current Stage 1F policy is intentionally conservative. The NSE "
+            "PermittedToTrade mapping remains disabled pending independent verification, "
+            "and no BSE trading-permission mapping is enabled. Therefore UNKNOWN is retained "
+            "where permission is unverified; market-status or closing-auction fields are "
+            "not substituted as proof of normal-market trading permission."
+        )
+        eligibility_counts = run_result.validation.trading_eligibility_counts
+        eligibility_columns = st.columns(4)
+        for column, status in zip(
+            eligibility_columns,
+            ("ELIGIBLE", "RESTRICTED", "EXCLUDED", "UNKNOWN"),
+            strict=True,
+        ):
+            column.metric(status.title(), f"{eligibility_counts.get(status, 0):,}")
+
+        st.subheader("5. Inspect output datasets")
+        dataset_specs = [
+            ("Cross-exchange master", "cross_exchange_master"),
+            ("Exchange listings", "exchange_listing_comparison"),
+            ("Duplicate groups", "duplicate_groups"),
+            ("Exceptions", "exceptions"),
+            ("Listing eligibility", "listing_eligibility"),
+            ("Summary", "summary"),
+        ]
+        dataset_tabs = st.tabs([label for label, _ in dataset_specs])
+        for tab, (label, dataset_name) in zip(dataset_tabs, dataset_specs, strict=True):
+            frame = run_result.frames[dataset_name]
+            with tab:
+                st.caption(
+                    f"{len(frame):,} rows · showing up to the first 500 rows in this preview"
+                )
+                st.dataframe(
+                    frame.head(500),
+                    use_container_width=True,
+                    hide_index=True,
+                )
+
+        st.subheader("6. Download reconciliation bundle")
+        bundle_buffer = io.BytesIO()
+        with zipfile.ZipFile(
+            bundle_buffer,
+            mode="w",
+            compression=zipfile.ZIP_DEFLATED,
+        ) as archive:
+            for dataset_name, frame in run_result.frames.items():
+                csv_bytes = frame.to_csv(index=False, lineterminator="\\n").encode("utf-8")
+                archive.writestr(f"{dataset_name}.csv", csv_bytes)
+
+        st.download_button(
+            "Download all six datasets (CSV ZIP)",
+            data=bundle_buffer.getvalue(),
+            file_name=f"india_rp2_reconciliation_{run_result.as_of_date.isoformat()}.zip",
+            mime="application/zip",
+            type="primary",
+            use_container_width=True,
+        )
+        st.caption(
+            "The ZIP contains cross_exchange_master, exchange_listing_comparison, "
+            "duplicate_groups, exceptions, listing_eligibility and summary CSV files."
+        )
+
+    with st.expander("RP2 implementation modules", expanded=False):
+        st.write(
+            "The workflow above calls the repository's existing modules directly. "
+            "The source remains available here for inspection."
+        )
+        modules = [
+            ("NSE security master parser", "india_ml4t/data/nse_security_master.py"),
+            ("BSE security master parser", "india_ml4t/data/bse_security_master.py"),
+            ("ISIN reconciliation", "india_ml4t/data/reconciliation.py"),
+            ("Eligibility policy", "india_ml4t/data/eligibility.py"),
+            ("Listing eligibility output", "india_ml4t/data/listing_eligibility.py"),
+            ("Reconciliation exports", "india_ml4t/data/reconciliation_export.py"),
+            ("Validation reports", "india_ml4t/data/validation.py"),
+        ]
+        for name, relative_path in modules:
+            path = REPO_ROOT / relative_path
+            with st.expander(name):
+                if path.is_file():
+                    st.caption(relative_path)
+                    st.code(path.read_text(encoding="utf-8"), language="python")
+                else:
+                    st.info(f"Module not present: {relative_path}")
 
 
 def _environment() -> None:
