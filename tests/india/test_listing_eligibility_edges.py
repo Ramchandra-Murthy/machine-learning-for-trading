@@ -28,25 +28,29 @@ def make_listing(**overrides):
 def test_policy_is_immutable():
     policy = Stage1FPolicy()
     with pytest.raises(FrozenInstanceError):
-        policy.nse_permitted_to_trade_mapping_verified = True
+        policy.nse_normal_market_eligibility_mapping_verified = False
 
 
 def test_restricted_trading_does_not_exclude_research():
-    policy = Stage1FPolicy(nse_permitted_to_trade_mapping_verified=True)
-    result = build_listing_eligibility_records([make_listing(prtd_to_trad="0")], policy)[0]
+    policy = Stage1FPolicy()
+    result = build_listing_eligibility_records(
+        [make_listing(normal_market_eligibility="0")], policy
+    )[0]
 
     assert result.research_eligibility == "UNKNOWN"
     assert result.trading_eligibility == "RESTRICTED"
-    assert result.reason_code == "NSE_NOT_PERMITTED_TO_TRADE"
+    assert result.reason_code == "NSE_NORMAL_MARKET_NOT_ELIGIBLE"
 
 
 def test_verified_permission_does_not_grant_research_eligibility():
-    policy = Stage1FPolicy(nse_permitted_to_trade_mapping_verified=True)
-    result = build_listing_eligibility_records([make_listing(prtd_to_trad="1")], policy)[0]
+    policy = Stage1FPolicy()
+    result = build_listing_eligibility_records(
+        [make_listing(normal_market_eligibility="1")], policy
+    )[0]
 
     assert result.trading_eligibility == "ELIGIBLE"
     assert result.research_eligibility == "UNKNOWN"
-    assert result.reason_code == "RESEARCH_INSTRUMENT_CLASS_UNVERIFIED"
+    assert result.reason_code == "NSE_NORMAL_MARKET_ELIGIBLE"
 
 
 def test_lowercase_padded_dummy_isin_is_excluded():

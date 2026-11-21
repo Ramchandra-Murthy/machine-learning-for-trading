@@ -17,9 +17,21 @@ In Streamlit Community Cloud, select:
 The app-specific `apps/portal/requirements.txt` installs the lightweight web runtime. The
 India RP2 workspace accepts an NSE `.csv`/`.csv.gz` and a BSE ZIP containing a
 `BSE_EQ_SCRIP_*.csv` member, applies one operator-selected as-of date, runs the repository's
-parsers and ISIN reconciliation, builds the conservative listing-eligibility output, validates
-the six output datasets, and offers them as a CSV ZIP download. Uploads are limited to 25 MB
+parsers and ISIN reconciliation, builds the listing-eligibility output, validates the
+six output datasets, and offers them as a CSV ZIP download. Uploads are limited to 25 MB
 per source and the selected expanded BSE CSV member is limited to 80 MB.
+
+Stage 1F maps NSE's documented `ElgbltyNrmlMkt` field (0 = not eligible in the normal
+market; 1 = eligible in the normal market), as specified in the NSE July 2026 pre-open FAQ
+effective from 7 September 2026. It does not use `PrtdToTrad`, market-status or
+closing-auction fields as substitutes. BSE remains `UNKNOWN` until an equivalent field
+mapping is independently verified. These results describe exchange-file normal-market
+eligibility; they do not constitute broker-specific approval or guarantee execution.
+Research-universe inclusion remains a separate assessment and may remain `UNKNOWN`
+until instrument and series rules are verified.
+
+Repeated-ISIN groups are diagnostic groups of multiple source records, not proof of exact
+duplicate rows. The reconciliation preserves all original listing rows.
 
 The Cloud dependency set is not the complete ML4T research environment. Chapter notebooks and
 case-study stages may need additional Python packages, datasets, credentials, GPU/database

@@ -1,8 +1,9 @@
 """Conservative Stage 1F listing eligibility assessments.
 
-Trading permission is deliberately UNKNOWN unless the applicable exchange
-field mapping has been explicitly verified and enabled in the policy.
-CAS eligibility is not normal-market trading permission.
+NSE normal-market eligibility is read only from the explicitly documented
+ElgbltyNrmlMkt field. The legacy PrtdToTrad field remains unmapped. BSE
+trading permission remains UNKNOWN until an exchange-specific field mapping
+is independently verified.
 """
 
 from __future__ import annotations
@@ -14,28 +15,34 @@ from typing import Literal
 from india_ml4t.data.policy import classify_isin_prefix
 from india_ml4t.data.schemas import EligibilityStatus, ExchangeListingRecord
 
-STAGE1F_POLICY_VERSION = "stage1f-eligibility-v0.1.0"
+STAGE1F_POLICY_VERSION = "stage1f-eligibility-v0.2.0"
 
 ResearchStatus = Literal["ELIGIBLE", "EXCLUDED", "UNKNOWN"]
 
 
 @dataclass(frozen=True)
 class Stage1FPolicy:
-    """Explicit evidence gates for exchange-specific trading mappings.
+    """Evidence gates for exchange-specific listing assessments.
 
-    The NSE gate defaults to False. Enabling it asserts that the current
-    exchange-file mapping and code meanings have been verified outside this
-    module. BSE remains UNKNOWN until a trading-permission field is verified.
-    No inferred or series-only trading permission is applied.
+    NSE's July 2026 pre-open FAQ (applicable from 7 September 2026) documents
+    field ElgbltyNrmlMkt in NSE_CM_security_ddmmyyyy.csv.gz:
+    0 = Not Eligible in Normal Market; 1 = Eligible in Normal Market.
+    That explicit field is enabled by default.
+
+    The legacy PrtdToTrad mapping is intentionally not used: the current MII
+    file's observed values do not reliably express normal-market eligibility.
+    Its old flag is retained only for constructor compatibility and has no
+    effect on classification. BSE remains UNKNOWN pending a verified mapping.
     """
 
     version: str = STAGE1F_POLICY_VERSION
+    nse_normal_market_eligibility_mapping_verified: bool = True
     nse_permitted_to_trade_mapping_verified: bool = False
 
 
 @dataclass(frozen=True)
 class ListingEligibilityAssessment:
-    """Separate research inclusion and exchange trading-permission results."""
+    """Separate research inclusion and exchange normal-market assessment."""
 
     isin: str
     exchange: str
@@ -78,47 +85,48 @@ def _trading_assessment(
     listing: ExchangeListingRecord,
     policy: Stage1FPolicy,
 ) -> tuple[EligibilityStatus, str, str]:
-    """Apply only explicitly enabled, exchange-specific permission mappings."""
+    """Assess normal-market eligibility using verified exchange-specific data."""
     if listing.exchange == "NSE":
-        if not policy.nse_permitted_to_trade_mapping_verified:
+        if not policy.nse_normal_market_eligibility_mapping_verified:
             return (
                 "UNKNOWN",
-                "NSE_PERMISSION_MAPPING_UNVERIFIED",
-                "Current NSE CSV mapping for PrtdToTrad has not been enabled as "
-                "verified. CAS and market-status fields are not substitutes.",
+                "NSE_NORMAL_MARKET_MAPPING_UNVERIFIED",
+                "The NSE ElgbltyNrmlMkt mapping is disabled by policy. "
+                "PrtdToTrad, market status and closing-auction fields are not "
+                "used as substitutes.",
             )
 
-        value = (listing.prtd_to_trad or "").strip()
+        value = (listing.normal_market_eligibility or "").strip()
         if value == "1":
             return (
                 "ELIGIBLE",
-                "NSE_PERMITTED_TO_TRADE",
-                "Verified NSE PermittedToTrade value indicates permission.",
+                "NSE_NORMAL_MARKET_ELIGIBLE",
+                "NSE MII Security File ElgbltyNrmlMkt=1 means eligible in the "
+                "normal market. This is an exchange-file classification, not "
+                "a broker-specific approval or guarantee of execution.",
             )
         if value == "0":
             return (
                 "RESTRICTED",
-                "NSE_NOT_PERMITTED_TO_TRADE",
-                "Verified NSE PermittedToTrade value indicates no trading permission.",
-            )
-        if value == "2":
-            return (
-                "RESTRICTED",
-                "NSE_BSE_EXCLUSIVE",
-                "BSE-exclusive listing; not ordinary NSE trading permission.",
+                "NSE_NORMAL_MARKET_NOT_ELIGIBLE",
+                "NSE MII Security File ElgbltyNrmlMkt=0 means not eligible in "
+                "the normal market. PrtdToTrad and closing-auction fields are "
+                "not used to override this value.",
             )
         return (
             "UNKNOWN",
-            "NSE_PERMISSION_VALUE_UNKNOWN",
-            f"Missing or unrecognised PrtdToTrad value: {value or '<blank>'}.",
+            "NSE_NORMAL_MARKET_VALUE_UNKNOWN",
+            "Missing or unrecognised NSE ElgbltyNrmlMkt value: "
+            f"{value or '<blank>'}.",
         )
 
     if listing.exchange == "BSE":
         return (
             "UNKNOWN",
             "BSE_PERMISSION_MAPPING_UNVERIFIED",
-            "No verified BSE trading-permission field mapping is enabled. "
-            "An active listing status is not treated as proof of trading permission.",
+            "No verified BSE normal-market trading-permission field mapping "
+            "is enabled. Listing status alone is not treated as proof of "
+            "trading permission.",
         )
 
     return (
@@ -132,26 +140,25 @@ def assess_listing_eligibility(
     listing: ExchangeListingRecord,
     policy: Stage1FPolicy | None = None,
 ) -> ListingEligibilityAssessment:
-    """Return conservative research and trading assessments for one listing.
+    """Return conservative research and normal-market assessments.
 
     Invalid/synthetic identities are excluded from both universes. Other
     research classifications remain UNKNOWN until instrument/series rules
-    are verified. Trading eligibility requires an explicitly enabled,
-    exchange-specific permission mapping.
+    are verified. NSE normal-market eligibility uses only the documented
+    ElgbltyNrmlMkt field; BSE remains UNKNOWN pending an equivalent verified
+    mapping.
     """
     active_policy = policy or Stage1FPolicy()
     research_status, research_reason, research_detail = _research_assessment(listing)
     trading_status, trading_reason, trading_detail = _trading_assessment(listing, active_policy)
 
     # Structurally invalid or synthetic identities must never be marked
-    # tradeable, even when an exchange permission field says "permitted".
+    # tradeable, even when the normal-market field says "eligible".
     if research_status == "EXCLUDED":
         trading_status = "EXCLUDED"
         reason_code, detail = research_reason, research_detail
-    elif trading_status != "ELIGIBLE":
-        reason_code, detail = trading_reason, trading_detail
     else:
-        reason_code, detail = research_reason, research_detail
+        reason_code, detail = trading_reason, trading_detail
 
     return ListingEligibilityAssessment(
         isin=listing.isin,

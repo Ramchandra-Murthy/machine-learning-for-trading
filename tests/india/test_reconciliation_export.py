@@ -84,6 +84,7 @@ def sample_result() -> ReconciliationResult:
                 as_of_date=AS_OF,
                 source_file="nse.csv",
                 prtd_to_trad="1",
+                normal_market_eligibility="1",
             ),
             ExchangeListingComparisonRecord(
                 isin="INE002A01018",
@@ -158,22 +159,22 @@ def test_reconciliation_dataframes_have_expected_datasets_and_rows(
     assert frames["listing_eligibility"].loc[0, "trading_eligibility"] == "UNKNOWN"
     assert frames["listing_eligibility"].loc[0, "prtd_to_trad"] == "1"
     assert frames["listing_eligibility"].loc[0, "source_file"] == "bse.zip!member.csv"
-    assert frames["listing_eligibility"].loc[1, "trading_eligibility"] == "UNKNOWN"
+    assert frames["listing_eligibility"].loc[1, "trading_eligibility"] == "ELIGIBLE"
 
     assert frames["cross_exchange_master"].columns.tolist()[0] == "isin"
     assert frames["exchange_listing_comparison"].columns.tolist()[0] == "isin"
 
 
-def test_verified_nse_mapping_is_opt_in_and_bse_stays_unknown(
+def test_disabling_nse_normal_market_mapping_keeps_nse_unknown(
     sample_result: ReconciliationResult,
 ) -> None:
     frames = reconciliation_dataframes(
         sample_result,
-        eligibility_policy=Stage1FPolicy(nse_permitted_to_trade_mapping_verified=True),
+        eligibility_policy=Stage1FPolicy(nse_normal_market_eligibility_mapping_verified=False),
     )
 
     eligibility = frames["listing_eligibility"]
-    assert eligibility.loc[1, "trading_eligibility"] == "ELIGIBLE"
+    assert eligibility.loc[1, "trading_eligibility"] == "UNKNOWN"
     assert eligibility.loc[1, "prtd_to_trad"] == "1"
     assert eligibility.loc[0, "trading_eligibility"] == "UNKNOWN"
     assert eligibility.loc[0, "reason_code"] == "BSE_PERMISSION_MAPPING_UNVERIFIED"
@@ -290,14 +291,13 @@ def test_reconciliation_validation_report_accepts_consistent_bundle(
     assert report.issues == ()
     assert report.dataset_rows["listing_eligibility"] == 2
     assert report.trading_eligibility_counts == {
-        "ELIGIBLE": 0,
+        "ELIGIBLE": 1,
         "RESTRICTED": 0,
         "EXCLUDED": 0,
-        "UNKNOWN": 2,
+        "UNKNOWN": 1,
     }
     assert report.unknown_reason_counts == {
         "BSE_PERMISSION_MAPPING_UNVERIFIED": 1,
-        "NSE_PERMISSION_MAPPING_UNVERIFIED": 1,
     }
 
 

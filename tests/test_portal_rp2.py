@@ -31,9 +31,10 @@ def _bse_zip(*rows: str) -> bytes:
 
 def _nse_csv() -> bytes:
     return (
-        "ISIN,TckrSymb,FinInstrmId,SctySrs,FinInstrmNm,DelFlg,PrtdToTrad\n"
-        "INE002A01018,RELIANCE,2885,EQ,Reliance Industries Limited,N,1\n"
-        "INE009A01021,INFY,1594,EQ,Infosys Limited,N,1\n"
+        "ISIN,TckrSymb,FinInstrmId,SctySrs,FinInstrmNm,DelFlg,PrtdToTrad,"
+        "ElgbltyNrmlMkt,SctyStsNrmlMkt\n"
+        "INE002A01018,RELIANCE,2885,EQ,Reliance Industries Limited,N,0,1,6\n"
+        "INE009A01021,INFY,1594,EQ,Infosys Limited,N,1,0,3\n"
     ).encode("utf-8")
 
 
@@ -67,9 +68,13 @@ def test_upload_workflow_reconciles_and_validates_all_datasets() -> None:
         "summary",
     }
 
-    # The default policy remains conservative even when the raw NSE file says 1.
+    # NSE normal-market eligibility controls the NSE assessment, not PrtdToTrad.
+    # BSE remains UNKNOWN because no BSE permission mapping is enabled.
     eligibility = result.frames["listing_eligibility"]
-    assert set(eligibility["trading_eligibility"].astype(str)) == {"UNKNOWN"}
+    nse = eligibility[eligibility["exchange"] == "NSE"]
+    bse = eligibility[eligibility["exchange"] == "BSE"]
+    assert list(nse["trading_eligibility"]) == ["ELIGIBLE", "RESTRICTED"]
+    assert set(bse["trading_eligibility"]) == {"UNKNOWN"}
     assert result.nse.source_checksum
     assert result.bse.source_checksum
     assert result.bse_member == "SCRIP/BSE_EQ_SCRIP_21112026.csv"
