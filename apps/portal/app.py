@@ -140,9 +140,9 @@ def _show_result(result: Any, *, notebook: bool = False) -> None:
 def _home() -> None:
     st.title("ML4T Learning & Research Portal")
     st.write(
-        "One application for the complete Machine Learning for Trading repository. "
-        "Browse the book, execute its chapter notebooks, work through case-study pipelines, "
-        "and access the India-market research modules."
+        "One application for the Machine Learning for Trading repository. Browse chapter "
+        "guides and source, run notebook and case-study workflows when their dependencies, "
+        "data and artifacts are available, and use the India RP2 security-master workspace."
     )
     total_notebooks = sum(chapter.notebook_count for chapter in CHAPTERS)
     total_stages = sum(len(study.stage_paths) for study in CASE_STUDIES)
@@ -613,7 +613,11 @@ def _india_rp2() -> None:
 
 def _environment() -> None:
     st.title("Environment & Data")
-    st.write("The portal uses the repository's Docker-based ML4T runtime.")
+    st.write(
+        "The portal is running in the current Streamlit environment. Its hosted dependency "
+        "set is intentionally lighter than the full ML4T Docker image. Notebook and case-study "
+        "execution may require additional packages, datasets, credentials and published artifacts."
+    )
     values = {
         "Repository": str(REPO_ROOT),
         "Data path": os.environ.get("ML4T_DATA_PATH", str(REPO_ROOT / "data")),
