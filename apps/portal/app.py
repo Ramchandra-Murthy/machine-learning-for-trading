@@ -571,7 +571,7 @@ def _india_rp2() -> None:
             compression=zipfile.ZIP_DEFLATED,
         ) as archive:
             for dataset_name, frame in run_result.frames.items():
-                csv_bytes = frame.to_csv(index=False, lineterminator="\\n").encode("utf-8")
+                csv_bytes = frame.to_csv(index=False, lineterminator="\n").encode("utf-8")
                 archive.writestr(f"{dataset_name}.csv", csv_bytes)
 
         st.download_button(
