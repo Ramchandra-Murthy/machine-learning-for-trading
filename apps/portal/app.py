@@ -487,9 +487,9 @@ def _india_rp2() -> None:
             metrics[3].metric("Unique ISINs", f"{summary.total_unique_isins:,}")
 
             counts = st.columns(4)
-            counts[0].metric("NSE valid listings", f"{summary.nse_valid_listings:,}")
-            counts[1].metric("BSE valid listings", f"{summary.bse_valid_listings:,}")
-            counts[2].metric("Duplicate groups", f"{summary.duplicate_group_count:,}")
+            counts[0].metric("NSE parsed listing rows", f"{summary.nse_valid_listings:,}")
+            counts[1].metric("BSE parsed listing rows", f"{summary.bse_valid_listings:,}")
+            counts[2].metric("Repeated-ISIN groups", f"{summary.duplicate_group_count:,}")
             counts[3].metric("Exceptions", f"{summary.exception_count:,}")
 
         with st.expander("Input diagnostics and source provenance"):
@@ -524,13 +524,14 @@ def _india_rp2() -> None:
             for issue in run_result.validation.issues:
                 st.write(f"- {issue}")
 
-        st.subheader("4. Conservative trading-permission assessment")
-        st.warning(
-            "The current Stage 1F policy is intentionally conservative. The NSE "
-            "PermittedToTrade mapping remains disabled pending independent verification, "
-            "and no BSE trading-permission mapping is enabled. Therefore UNKNOWN is retained "
-            "where permission is unverified; market-status or closing-auction fields are "
-            "not substituted as proof of normal-market trading permission."
+        st.subheader("4. Normal-market eligibility assessment")
+        st.info(
+            "For NSE, Stage 1F now uses the documented ElgbltyNrmlMkt field: 1 = "
+            "Eligible in Normal Market and 0 = Not Eligible in Normal Market, as defined "
+            "in the July 2026 NSE pre-open FAQ (effective 7 September 2026). The separate "
+            "PrtdToTrad field remains unmapped and is not used. BSE remains UNKNOWN until "
+            "an equivalent BSE field mapping is independently verified. These exchange-file "
+            "classifications are not broker-specific approval or a guarantee of execution."
         )
         eligibility_counts = run_result.validation.trading_eligibility_counts
         eligibility_columns = st.columns(4)
@@ -545,7 +546,7 @@ def _india_rp2() -> None:
         dataset_specs = [
             ("Cross-exchange master", "cross_exchange_master"),
             ("Exchange listings", "exchange_listing_comparison"),
-            ("Duplicate groups", "duplicate_groups"),
+            ("Repeated-ISIN groups", "duplicate_groups"),
             ("Exceptions", "exceptions"),
             ("Listing eligibility", "listing_eligibility"),
             ("Summary", "summary"),
@@ -554,6 +555,12 @@ def _india_rp2() -> None:
         for tab, (label, dataset_name) in zip(dataset_tabs, dataset_specs, strict=True):
             frame = run_result.frames[dataset_name]
             with tab:
+                if dataset_name == "duplicate_groups":
+                    st.caption(
+                        "These are ISINs represented by multiple source rows. They are "
+                        "diagnostic groups, not proof of exact duplicate rows; all source "
+                        "listings are retained."
+                    )
                 st.caption(
                     f"{len(frame):,} rows · showing up to the first 500 rows in this preview"
                 )
