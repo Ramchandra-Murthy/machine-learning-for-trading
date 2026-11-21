@@ -73,6 +73,8 @@ def test_upload_workflow_reconciles_and_validates_all_datasets() -> None:
     assert result.nse.source_checksum
     assert result.bse.source_checksum
     assert result.bse_member == "SCRIP/BSE_EQ_SCRIP_21112026.csv"
+    assert summary.nse_source_file == "nse_master.csv"
+    assert summary.bse_source_file == "BSE_SCRIP.zip"
 
 
 def test_bse_member_selection_is_explicit_for_multiple_matching_files() -> None:
@@ -142,3 +144,19 @@ def test_upload_workflow_rejects_path_segments_in_uploaded_names_safely() -> Non
     )
     assert result.nse_filename == "nse_master.csv"
     assert result.bse_filename == "BSE_SCRIP.zip"
+
+
+
+def test_upload_workflow_rejects_a_master_with_no_valid_listings() -> None:
+    empty_nse = b"ISIN,TckrSymb,FinInstrmId,SctySrs\n"
+    bse_bytes = _bse_zip(
+        "500325,RELIANCE,A,Reliance Industries Limited,INE002A01018,E,CM,A"
+    )
+    with pytest.raises(RP2WorkflowInputError, match="zero valid listing rows"):
+        run_rp2_reconciliation(
+            nse_filename="empty_nse.csv",
+            nse_bytes=empty_nse,
+            bse_filename="BSE_SCRIP.zip",
+            bse_zip_bytes=bse_bytes,
+            as_of_date=AS_OF,
+        )
